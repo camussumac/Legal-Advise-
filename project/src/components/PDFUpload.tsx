@@ -1,109 +1,100 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 
-interface PDFFile {
-  name: string;
-  url: string;
-  size: number;
+interface PDFUploadProps {
+  onUpload?: (file: File) => void;
 }
 
-export const PDFUpload: React.FC = () => {
-  const [pdfs, setPdfs] = useState<PDFFile[]>([]);
-  const [error, setError] = useState<string>('');
+const PDFUpload: React.FC<PDFUploadProps> = ({ onUpload }) => {
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [fileName, setFileName] = useState<string>('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (!files) return;
-
-    const newPdfs: PDFFile[] = [];
-    setError('');
-
-    Array.from(files).forEach((file) => {
-      if (file.type !== 'application/pdf') {
-        setError('Please upload only PDF files');
-        return;
-      }
-
-      // Create a URL for the file
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file && file.type === 'application/pdf') {
+      setFileName(file.name);
       const url = URL.createObjectURL(file);
-      newPdfs.push({
-        name: file.name,
-        url: url,
-        size: file.size,
-      });
-    });
-
-    setPdfs([...pdfs, ...newPdfs]);
+      setPdfUrl(url);
+      onUpload?.(file);
+    } else {
+      alert('Please upload a PDF file');
+    }
   };
 
-  const removeFile = (index: number) => {
-    const newPdfs = [...pdfs];
-    URL.revokeObjectURL(newPdfs[index].url); // Clean up the URL
-    newPdfs.splice(index, 1);
-    setPdfs(newPdfs);
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const file = event.dataTransfer.files[0];
+    if (file && file.type === 'application/pdf') {
+      setFileName(file.name);
+      const url = URL.createObjectURL(file);
+      setPdfUrl(url);
+      onUpload?.(file);
+    } else {
+      alert('Please drop a PDF file');
+    }
   };
 
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+  };
+
+  const clearFile = () => {
+    if (pdfUrl) {
+      URL.revokeObjectURL(pdfUrl);
+    }
+    setPdfUrl(null);
+    setFileName('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   return (
-    <div className="max-w-2xl mx-auto p-4">
-      <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-        <input
-          type="file"
-          accept=".pdf"
-          multiple
-          onChange={handleFileUpload}
-          className="hidden"
-          id="pdf-upload"
-        />
-        <label
-          htmlFor="pdf-upload"
-          className="cursor-pointer bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+    <div className="w-full max-w-2xl mx-auto p-4">
+      {!pdfUrl ? (
+        <div
+          className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-gray-400 transition-colors"
+          onClick={() => fileInputRef.current?.click()}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
         >
-          Upload PDF Files
-        </label>
-        {error && <p className="text-red-500 mt-2">{error}</p>}
-      </div>
-
-      {pdfs.length > 0 && (
-        <div className="mt-6">
-          <h3 className="text-lg font-semibold mb-4">Uploaded Files:</h3>
-          <div className="space-y-3">
-            {pdfs.map((pdf, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between bg-gray-50 p-3 rounded"
-              >
-                <div>
-                  <p className="font-medium">{pdf.name}</p>
-                  <p className="text-sm text-gray-500">{formatFileSize(pdf.size)}</p>
-                </div>
-                <div className="flex space-x-2">
-                  <a
-                    href={pdf.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-500 hover:text-blue-700"
-                  >
-                    View
-                  </a>
-                  <button
-                    onClick={() => removeFile(index)}
-                    className="text-red-500 hover:text-red-700"
-                  >
-                    Remove
-                  </button>
-                </div>
-              </div>
-            ))}
+          <input
+            type="file"
+            accept=".pdf"
+            onChange={handleFileChange}
+            className="hidden"
+            ref={fileInputRef}
+          />
+          <div className="text-gray-600">
+            <p className="mb-2">Drag and drop your PDF here</p>
+            <p className="text-sm">or</p>
+            <button className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">
+              Choose File
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between bg-gray-100 p-3 rounded">
+            <span className="truncate max-w-xs">{fileName}</span>
+            <button
+              onClick={clearFile}
+              className="text-red-500 hover:text-red-600"
+            >
+              Remove
+            </button>
+          </div>
+          <div className="w-full h-[600px] border border-gray-300 rounded">
+            <iframe
+              src={pdfUrl}
+              className="w-full h-full"
+              title="PDF Viewer"
+            />
           </div>
         </div>
       )}
     </div>
   );
 };
+
+export default PDFUpload;
