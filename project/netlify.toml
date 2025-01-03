@@ -1,0 +1,9 @@
+[build]
+command = "cd project && npm install && npm run build"
+publish = "project/dist"
+base = "./"
+
+[[redirects]]
+from = "/*"
+to = "/index.html"
+status = 200
